@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pop Paradise — Digital Order Place</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo-badge">PP</span>
+      <div>
+        <h1>Pop Paradise</h1>
+        <small>Digital Order & Kitchen Portal</small>
+      </div>
+    </div>
+
+    <div class="view-switch">
+      <button id="btnCustomerView" class="tab-btn active">Customer Menu</button>
+      <button id="btnManagerView" class="tab-btn">Manager & Kitchen</button>
+    </div>
+  </header>
+
+  <!-- CUSTOMER VIEW -->
+  <main id="customerSection" class="layout">
+    <section class="menu-area">
+      <div class="controls-bar">
+        <div class="table-picker">
+          <label for="tableSelect">Table:</label>
+          <select id="tableSelect">
+            <option value="T-01">Table 01</option>
+            <option value="T-02">Table 02</option>
+            <option value="T-03">Table 03</option>
+            <option value="T-04">Table 04</option>
+            <option value="Takeaway">Takeaway</option>
+          </select>
+        </div>
+        <input type="text" id="searchInput" placeholder="Search burgers, pasta, drinks..." />
+      </div>
+
+      <div class="categories" id="categoryBar">
+        <button class="cat-chip active" data-cat="All">All</button>
+        <button class="cat-chip" data-cat="Burgers">Burgers</button>
+        <button class="cat-chip" data-cat="Main Course">Main Course</button>
+        <button class="cat-chip" data-cat="Sides">Sides</button>
+        <button class="cat-chip" data-cat="Drinks">Drinks</button>
+      </div>
+
+      <div id="aiSmartBanner" class="smart-banner"></div>
+
+      <!-- CUSTOMER AI ASSISTANT -->
+      <div class="ai-box">
+        <div class="ai-box-head">
+          <strong>AI Food Assistant</strong>
+          <small>Ask by budget, spice, or craving</small>
+        </div>
+        <div id="customerAiChat" class="ai-messages">
+          <div class="ai-msg bot">Hi! Ask me anything — e.g. <em>"spicy meal under 700"</em>, <em>"suggest a combo"</em>, or <em>"best drink"</em>.</div>
+        </div>
+        <form id="customerAiForm" class="ai-input-row">
+          <input type="text" id="customerAiInput" placeholder="Ask AI for meal ideas..." required />
+          <button type="submit">Ask</button>
+        </form>
+      </div>
+
+      <div id="menuGrid" class="menu-grid"></div>
+    </section>
+
+    <aside class="cart-panel">
+      <h2>Your Order (<span id="activeTableLabel">T-01</span>)</h2>
+      <div id="cartItems" class="cart-list">
+        <p class="empty-msg">No items added yet.</p>
+      </div>
+
+      <div id="pairingBox" class="pairing-box hidden"></div>
+
+      <div class="cart-footer">
+        <textarea id="orderNote" rows="2" placeholder="Kitchen note (e.g. extra spicy, less ice)..."></textarea>
+        <div class="total-row">
+          <span>Total Payable</span>
+          <strong id="cartTotal">PKR 0</strong>
+        </div>
+        <button id="placeOrderBtn" class="primary-btn" disabled>Send Order to Kitchen</button>
+      </div>
+    </aside>
+  </main>
+
+  <!-- MANAGER VIEW -->
+  <main id="managerSection" class="manager-layout hidden">
+    <section class="stats-row">
+      <div class="stat-card">
+        <span>Total Orders</span>
+        <strong id="statOrders">0</strong>
+      </div>
+      <div class="stat-card">
+        <span>Active Queue</span>
+        <strong id="statActive">0</strong>
+      </div>
+      <div class="stat-card">
+        <span>Today's Revenue</span>
+        <strong id="statRevenue">PKR 0</strong>
+      </div>
+      <div class="stat-card highlight">
+        <span>Top Demand Item</span>
+        <strong id="statTopItem">—</strong>
+      </div>
+    </section>
+
+    <section class="insight-strip" id="managerInsightStrip"></section>
+
+    <!-- MANAGER AI COPILOT -->
+    <section class="ai-box manager-ai">
+      <div class="ai-box-head">
+        <strong>Manager AI Operations Copilot</strong>
+        <small>Ask about sales, top items, pending orders, or stock</small>
+      </div>
+      <div id="managerAiChat" class="ai-messages">
+        <div class="ai-msg bot">Hello Manager! Ask me: <em>"today's revenue"</em>, <em>"top selling item"</em>, <em>"pending orders"</em>, or <em>"stock status"</em>.</div>
+      </div>
+      <form id="managerAiForm" class="ai-input-row">
+        <input type="text" id="managerAiInput" placeholder="Ask operations assistant..." required />
+        <button type="submit">Analyze</button>
+      </form>
+    </section>
+
+    <div class="manager-grid">
+      <section class="panel">
+        <div class="panel-head">
+          <h2>Live Kitchen Queue</h2>
+          <button id="clearCompletedBtn" class="ghost-btn">Clear Served</button>
+        </div>
+        <div id="orderQueue" class="queue-list"></div>
+      </section>
+
+      <section class="panel">
+        <h2>Add Menu Item</h2>
+        <form id="addMenuForm" class="stack-form">
+          <input type="text" id="itemName" placeholder="Dish name" required />
+          <select id="itemCat">
+            <option value="Burgers">Burgers</option>
+            <option value="Main Course">Main Course</option>
+            <option value="Sides">Sides</option>
+            <option value="Drinks">Drinks</option>
+          </select>
+          <input type="number" id="itemPrice" placeholder="Price (PKR)" min="50" required />
+          <input type="text" id="itemDesc" placeholder="Short description" required />
+          <button type="submit" class="primary-btn">Add to Menu</button>
+        </form>
+
+        <h3 class="sub-heading">Manage Stock</h3>
+        <div id="stockList" class="stock-list"></div>
+      </section>
+    </div>
+  </main>
+
+  <div id="toast" class="toast hidden"></div>
+  <script src="app.js"></script>
+</body>
+</html>
