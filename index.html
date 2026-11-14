@@ -3,156 +3,265 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Pop Paradise — Digital Order Place</title>
+  <title>Pop Paradise — Enterprise Restaurant POS & AI Analytics</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <header class="topbar">
-    <div class="brand">
-      <span class="logo-badge">PP</span>
-      <div>
-        <h1>Pop Paradise</h1>
-        <small>Digital Order & Kitchen Portal</small>
-      </div>
-    </div>
-
-    <div class="view-switch">
-      <button id="btnCustomerView" class="tab-btn active">Customer Menu</button>
-      <button id="btnManagerView" class="tab-btn">Manager & Kitchen</button>
-    </div>
-  </header>
-
-  <!-- CUSTOMER VIEW -->
-  <main id="customerSection" class="layout">
-    <section class="menu-area">
-      <div class="controls-bar">
-        <div class="table-picker">
-          <label for="tableSelect">Table:</label>
-          <select id="tableSelect">
-            <option value="T-01">Table 01</option>
-            <option value="T-02">Table 02</option>
-            <option value="T-03">Table 03</option>
-            <option value="T-04">Table 04</option>
-            <option value="Takeaway">Takeaway</option>
-          </select>
+  <div class="app-shell">
+    <!-- SIDEBAR NAVIGATION -->
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">PP</div>
+        <div>
+          <h2>Pop Paradise</h2>
+          <span>Restaurant OS v2.4</span>
         </div>
-        <input type="text" id="searchInput" placeholder="Search burgers, pasta, drinks..." />
       </div>
 
-      <div class="categories" id="categoryBar">
-        <button class="cat-chip active" data-cat="All">All</button>
-        <button class="cat-chip" data-cat="Burgers">Burgers</button>
-        <button class="cat-chip" data-cat="Main Course">Main Course</button>
-        <button class="cat-chip" data-cat="Sides">Sides</button>
-        <button class="cat-chip" data-cat="Drinks">Drinks</button>
-      </div>
+      <nav class="nav-menu">
+        <button class="nav-item active" data-view="posView">
+          <span>Digital Ordering POS</span>
+          <small>Customer / Waiter</small>
+        </button>
+        <button class="nav-item" data-view="kdsView">
+          <span>Kitchen Display (KDS)</span>
+          <span id="navKdsBadge" class="pill">0</span>
+        </button>
+        <button class="nav-item" data-view="analyticsView">
+          <span>Manager & AI Analytics</span>
+          <small>BI & Forecasting</small>
+        </button>
+        <button class="nav-item" data-view="inventoryView">
+          <span>Menu & Inventory</span>
+          <small>Catalog & Stock</small>
+        </button>
+      </nav>
 
-      <div id="aiSmartBanner" class="smart-banner"></div>
-
-      <!-- CUSTOMER AI ASSISTANT -->
-      <div class="ai-box">
-        <div class="ai-box-head">
-          <strong>AI Food Assistant</strong>
-          <small>Ask by budget, spice, or craving</small>
-        </div>
-        <div id="customerAiChat" class="ai-messages">
-          <div class="ai-msg bot">Hi! Ask me anything — e.g. <em>"spicy meal under 700"</em>, <em>"suggest a combo"</em>, or <em>"best drink"</em>.</div>
-        </div>
-        <form id="customerAiForm" class="ai-input-row">
-          <input type="text" id="customerAiInput" placeholder="Ask AI for meal ideas..." required />
-          <button type="submit">Ask</button>
-        </form>
-      </div>
-
-      <div id="menuGrid" class="menu-grid"></div>
-    </section>
-
-    <aside class="cart-panel">
-      <h2>Your Order (<span id="activeTableLabel">T-01</span>)</h2>
-      <div id="cartItems" class="cart-list">
-        <p class="empty-msg">No items added yet.</p>
-      </div>
-
-      <div id="pairingBox" class="pairing-box hidden"></div>
-
-      <div class="cart-footer">
-        <textarea id="orderNote" rows="2" placeholder="Kitchen note (e.g. extra spicy, less ice)..."></textarea>
-        <div class="total-row">
-          <span>Total Payable</span>
-          <strong id="cartTotal">PKR 0</strong>
-        </div>
-        <button id="placeOrderBtn" class="primary-btn" disabled>Send Order to Kitchen</button>
+      <div class="sidebar-footer">
+        <div class="live-indicator"><span class="dot"></span> LocalDB Synced</div>
+        <button id="exportReportBtn" class="outline-btn">Export Sales CSV</button>
       </div>
     </aside>
-  </main>
 
-  <!-- MANAGER VIEW -->
-  <main id="managerSection" class="manager-layout hidden">
-    <section class="stats-row">
-      <div class="stat-card">
-        <span>Total Orders</span>
-        <strong id="statOrders">0</strong>
-      </div>
-      <div class="stat-card">
-        <span>Active Queue</span>
-        <strong id="statActive">0</strong>
-      </div>
-      <div class="stat-card">
-        <span>Today's Revenue</span>
-        <strong id="statRevenue">PKR 0</strong>
-      </div>
-      <div class="stat-card highlight">
-        <span>Top Demand Item</span>
-        <strong id="statTopItem">—</strong>
-      </div>
-    </section>
-
-    <section class="insight-strip" id="managerInsightStrip"></section>
-
-    <!-- MANAGER AI COPILOT -->
-    <section class="ai-box manager-ai">
-      <div class="ai-box-head">
-        <strong>Manager AI Operations Copilot</strong>
-        <small>Ask about sales, top items, pending orders, or stock</small>
-      </div>
-      <div id="managerAiChat" class="ai-messages">
-        <div class="ai-msg bot">Hello Manager! Ask me: <em>"today's revenue"</em>, <em>"top selling item"</em>, <em>"pending orders"</em>, or <em>"stock status"</em>.</div>
-      </div>
-      <form id="managerAiForm" class="ai-input-row">
-        <input type="text" id="managerAiInput" placeholder="Ask operations assistant..." required />
-        <button type="submit">Analyze</button>
-      </form>
-    </section>
-
-    <div class="manager-grid">
-      <section class="panel">
-        <div class="panel-head">
-          <h2>Live Kitchen Queue</h2>
-          <button id="clearCompletedBtn" class="ghost-btn">Clear Served</button>
+    <!-- MAIN CONTENT AREA -->
+    <div class="main-area">
+      <!-- TOP BAR -->
+      <header class="topbar">
+        <div>
+          <h1 id="pageTitle">Digital Ordering Terminal</h1>
+          <p id="pageSubtitle" class="subtitle">Table service, smart upselling, and automated KDS routing</p>
         </div>
-        <div id="orderQueue" class="queue-list"></div>
+        <div class="top-actions">
+          <div class="table-status-bar" id="tableStatusBar"></div>
+        </div>
+      </header>
+
+      <!-- 1. POS / CUSTOMER ORDERING VIEW -->
+      <section id="posView" class="view-section active pos-grid">
+        <div class="catalog-pane">
+          <div class="toolbar">
+            <div class="field-group">
+              <label>Order Channel / Table</label>
+              <select id="tableSelector">
+                <option value="T-01">Table 01 (Dine-In)</option>
+                <option value="T-02">Table 02 (Dine-In)</option>
+                <option value="T-03">Table 03 (Dine-In)</option>
+                <option value="T-04">Table 04 (VIP Booth)</option>
+                <option value="T-05">Table 05 (Patio)</option>
+                <option value="Takeaway">Counter Takeaway</option>
+              </select>
+            </div>
+            <div class="field-group grow">
+              <label>Search Menu</label>
+              <input type="text" id="menuSearch" placeholder="Filter by dish name, ingredient, or tag..." />
+            </div>
+          </div>
+
+          <div class="category-tabs" id="categoryTabs"></div>
+
+          <!-- CUSTOMER AI CONCIERGE -->
+          <div class="ai-console">
+            <div class="ai-header">
+              <div>
+                <span class="ai-tag">AI MENU CONCIERGE</span>
+                <span id="dynamicRecoText" class="reco-inline"></span>
+              </div>
+            </div>
+            <div id="customerChatLog" class="chat-stream">
+              <div class="msg bot">Welcome to Pop Paradise. Ask me for meal combos, budget filters (e.g. "under 800"), or spicy recommendations.</div>
+            </div>
+            <form id="customerChatForm" class="chat-form">
+              <input type="text" id="customerChatInput" placeholder="e.g. Suggest a spicy dinner combo under 1200 PKR..." required />
+              <button type="submit">Ask AI</button>
+            </form>
+          </div>
+
+          <div id="dishGrid" class="dish-grid"></div>
+        </div>
+
+        <!-- ORDER TICKET / CART -->
+        <aside class="ticket-pane">
+          <div class="ticket-header">
+            <h3>Active Ticket — <span id="ticketTableBadge">T-01</span></h3>
+            <button id="clearCartBtn" class="text-btn">Reset</button>
+          </div>
+
+          <div id="cartContainer" class="cart-items"></div>
+
+          <div id="smartUpsellCard" class="upsell-card hidden"></div>
+
+          <div class="billing-box">
+            <input type="text" id="customerNameInput" placeholder="Customer Name (Optional)" />
+            <textarea id="kitchenNotesInput" rows="2" placeholder="Allergies or prep instructions..."></textarea>
+
+            <div class="promo-row">
+              <input type="text" id="promoInput" placeholder="Promo (try: PADUA10)" />
+              <button type="button" id="applyPromoBtn">Apply</button>
+            </div>
+
+            <div class="calc-lines">
+              <div><span>Subtotal</span><span id="subTotalVal">PKR 0</span></div>
+              <div><span>GST (8%)</span><span id="taxVal">PKR 0</span></div>
+              <div id="discountLine" class="hidden"><span>Discount</span><span id="discountVal">-PKR 0</span></div>
+              <div class="grand-total"><span>Total Payable</span><strong id="grandTotalVal">PKR 0</strong></div>
+            </div>
+
+            <div class="payment-selector">
+              <label><input type="radio" name="payMethod" value="Card / QR" checked /> Card / QR</label>
+              <label><input type="radio" name="payMethod" value="Cash" /> Cash</label>
+            </div>
+
+            <button id="submitOrderBtn" class="btn-primary" disabled>Dispatch to Kitchen (KDS)</button>
+          </div>
+        </aside>
       </section>
 
-      <section class="panel">
-        <h2>Add Menu Item</h2>
-        <form id="addMenuForm" class="stack-form">
-          <input type="text" id="itemName" placeholder="Dish name" required />
-          <select id="itemCat">
-            <option value="Burgers">Burgers</option>
-            <option value="Main Course">Main Course</option>
-            <option value="Sides">Sides</option>
-            <option value="Drinks">Drinks</option>
-          </select>
-          <input type="number" id="itemPrice" placeholder="Price (PKR)" min="50" required />
-          <input type="text" id="itemDesc" placeholder="Short description" required />
-          <button type="submit" class="primary-btn">Add to Menu</button>
-        </form>
+      <!-- 2. KITCHEN DISPLAY SYSTEM (KDS) VIEW -->
+      <section id="kdsView" class="view-section hidden">
+        <div class="kds-toolbar">
+          <div class="kds-filters">
+            <button class="filter-pill active" data-kds="ALL">All Tickets</button>
+            <button class="filter-pill" data-kds="Pending">Pending</button>
+            <button class="filter-pill" data-kds="Preparing">Preparing</button>
+            <button class="filter-pill" data-kds="Ready">Ready to Serve</button>
+            <button class="filter-pill" data-kds="Completed">Completed</button>
+          </div>
+          <button id="simulateRushBtn" class="outline-btn">+ Simulate Demo Order</button>
+        </div>
+        <div id="kdsBoard" class="kds-board"></div>
+      </section>
 
-        <h3 class="sub-heading">Manage Stock</h3>
-        <div id="stockList" class="stock-list"></div>
+      <!-- 3. MANAGER & AI ANALYTICS VIEW -->
+      <section id="analyticsView" class="view-section hidden">
+        <div class="kpi-grid">
+          <div class="kpi-card">
+            <span class="kpi-label">Gross Revenue</span>
+            <strong id="kpiRevenue" class="kpi-num">PKR 0</strong>
+            <span id="kpiOrdersCount" class="kpi-sub">0 orders processed</span>
+          </div>
+          <div class="kpi-card">
+            <span class="kpi-label">Average Order Value (AOV)</span>
+            <strong id="kpiAov" class="kpi-num">PKR 0</strong>
+            <span class="kpi-sub">Per completed & active ticket</span>
+          </div>
+          <div class="kpi-card">
+            <span class="kpi-label">Gross Profit Margin</span>
+            <strong id="kpiMargin" class="kpi-num">0%</strong>
+            <span id="kpiProfitVal" class="kpi-sub">Est. net PKR 0</span>
+          </div>
+          <div class="kpi-card">
+            <span class="kpi-label">Top Revenue Driver</span>
+            <strong id="kpiTopDish" class="kpi-num">—</strong>
+            <span id="kpiTopQty" class="kpi-sub">0 units sold</span>
+          </div>
+        </div>
+
+        <div class="analytics-split">
+          <!-- VISUAL REVENUE BY CATEGORY -->
+          <div class="card">
+            <h3>Category Revenue Breakdown</h3>
+            <p class="card-desc">Live distribution across menu categories</p>
+            <div id="categoryChart" class="bar-chart"></div>
+          </div>
+
+          <!-- MANAGER AI OPERATIONS COPILOT -->
+          <div class="card ai-copilot-card">
+            <div class="ai-header">
+              <span class="ai-tag">AI OPERATIONS COPILOT</span>
+            </div>
+            <p class="card-desc">Query sales performance, profit margins, peak demand, or low-stock bottlenecks.</p>
+            <div id="managerChatLog" class="chat-stream tall">
+              <div class="msg bot">Operations Copilot online. Ask me about "profit margin", "category breakdown", "kitchen bottleneck", or "restock alerts".</div>
+            </div>
+            <form id="managerChatForm" class="chat-form">
+              <input type="text" id="managerChatInput" placeholder="Ask business intelligence query..." required />
+              <button type="submit">Run Query</button>
+            </form>
+          </div>
+        </div>
+      </section>
+
+      <!-- 4. MENU & INVENTORY MANAGEMENT VIEW -->
+      <section id="inventoryView" class="view-section hidden">
+        <div class="inv-grid">
+          <div class="card">
+            <h3>Add New Menu Item</h3>
+            <form id="newDishForm" class="form-stack">
+              <label>Dish Name <input type="text" id="fName" required placeholder="e.g. Truffle Mushroom Burger" /></label>
+              <div class="two-col-inputs">
+                <label>Category
+                  <select id="fCategory">
+                    <option value="Burgers">Burgers</option>
+                    <option value="Main Course">Main Course</option>
+                    <option value="Sides">Sides</option>
+                    <option value="Drinks">Drinks</option>
+                  </select>
+                </label>
+                <label>Prep Time (mins) <input type="number" id="fPrep" value="12" min="2" max="60" required /></label>
+              </div>
+              <div class="two-col-inputs">
+                <label>Cost Price (PKR) <input type="number" id="fCost" required min="20" placeholder="320" /></label>
+                <label>Selling Price (PKR) <input type="number" id="fPrice" required min="50" placeholder="750" /></label>
+              </div>
+              <label>Initial Stock Portions <input type="number" id="fStock" required min="1" value="25" /></label>
+              <label>Description & Tags <input type="text" id="fDesc" required placeholder="Ingredients, spice level..." /></label>
+              <button type="submit" class="btn-primary">Publish to POS Menu</button>
+            </form>
+          </div>
+
+          <div class="card">
+            <h3>Live Inventory & Margin Ledger</h3>
+            <div class="table-wrap">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Item</th>
+                    <th>Category</th>
+                    <th>Price / Cost</th>
+                    <th>Margin</th>
+                    <th>Portions Left</th>
+                    <th>Controls</th>
+                  </tr>
+                </thead>
+                <tbody id="inventoryTableBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
       </section>
     </div>
-  </main>
+  </div>
+
+  <!-- RECEIPT MODAL -->
+  <div id="receiptModal" class="modal-backdrop hidden">
+    <div class="modal-box">
+      <div id="receiptContent"></div>
+      <div class="modal-actions">
+        <button onclick="window.print()" class="outline-btn">Print Receipt</button>
+        <button id="closeReceiptBtn" class="btn-primary">Done</button>
+      </div>
+    </div>
+  </div>
 
   <div id="toast" class="toast hidden"></div>
   <script src="app.js"></script>
