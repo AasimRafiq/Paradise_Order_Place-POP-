@@ -1,441 +1,602 @@
-const DEFAULT_MENU = [
-  { id: 1, name: "Paradise Smash Burger", category: "Burgers", price: 680, desc: "Double beef patty, cheddar slice, house smoky sauce.", available: true },
-  { id: 2, name: "Crispy Zinger Stack", category: "Burgers", price: 590, desc: "Crunchy chicken fillet, jalapeno mayo, iceberg.", available: true },
-  { id: 3, name: "Alfredo Penne Pasta", category: "Main Course", price: 850, desc: "Creamy parmesan sauce with grilled herb chicken.", available: true },
-  { id: 4, name: "Peri-Peri Half Chicken", category: "Main Course", price: 980, desc: "Flame-grilled chicken served with garlic rice.", available: true },
-  { id: 5, name: "Loaded Masala Fries", category: "Sides", price: 340, desc: "Crispy skin-on fries topped with cheese & herbs.", available: true },
-  { id: 6, name: "Garlic Bread (4 Pcs)", category: "Sides", price: 260, desc: "Toasted herb butter baguette slices.", available: true },
-  { id: 7, name: "Mint Margarita", category: "Drinks", price: 240, desc: "Fresh mint, lime juice, crushed ice.", available: true },
-  { id: 8, name: "Cold Brew Peach Tea", category: "Drinks", price: 280, desc: "Chilled black tea infused with white peach.", available: true }
+const INITIAL_CATALOG = [
+  { id: 101, name: "Paradise Double Smash", category: "Burgers", cost: 340, price: 790, stock: 24, prepMins: 12, desc: "Aged beef patties, smoked cheddar, caramelized onions, house sauce." },
+  { id: 102, name: "Fiery Zinger Crunch", category: "Burgers", cost: 280, price: 650, stock: 18, prepMins: 10, desc: "Crispy spicy chicken thigh, jalapeno aioli, pickled slaw." },
+  { id: 103, name: "Truffle Alfredo Fettuccine", category: "Main Course", cost: 410, price: 960, stock: 14, prepMins: 16, desc: "Parmesan cream reduction, grilled herb chicken, black pepper." },
+  { id: 104, name: "Peri-Peri Flame Half Chicken", category: "Main Course", cost: 480, price: 1120, stock: 11, prepMins: 18, desc: "Chargrilled spicy peri chicken served with aromatic garlic rice." },
+  { id: 105, name: "Loaded Cheddar Masala Fries", category: "Sides", cost: 130, price: 380, stock: 30, prepMins: 7, desc: "Skin-on fries, melted cheddar, peri dust, spring onions." },
+  { id: 106, name: "Roasted Garlic Herb Bread", category: "Sides", cost: 95, price: 290, stock: 22, prepMins: 6, desc: "Four toasted sourdough slices with compound herb butter." },
+  { id: 107, name: "Fresh Mint Margarita", category: "Drinks", cost: 75, price: 260, stock: 35, prepMins: 4, desc: "Crushed garden mint, fresh lime, sparkling citrus blend." },
+  { id: 108, name: "Peach Iced Black Tea", category: "Drinks", cost: 85, price: 290, stock: 28, prepMins: 3, desc: "Cold-brewed Ceylon tea infused with white peach nectar." }
 ];
 
-const STORAGE_KEYS = {
-  MENU: "pp_menu_v1",
-  ORDERS: "pp_orders_v1"
+const DB_KEYS = {
+  CATALOG: "pp_os_catalog_v2",
+  ORDERS: "pp_os_orders_v2"
 };
 
-let menu = JSON.parse(localStorage.getItem(STORAGE_KEYS.MENU)) || DEFAULT_MENU;
-let orders = JSON.parse(localStorage.getItem(STORAGE_KEYS.ORDERS)) || [];
+let catalog = JSON.parse(localStorage.getItem(DB_KEYS.CATALOG)) || INITIAL_CATALOG;
+let orders = JSON.parse(localStorage.getItem(DB_KEYS.ORDERS)) || [];
 let cart = [];
-let selectedCategory = "All";
+let activeCategory = "All";
+let activeKdsFilter = "ALL";
+let discountRate = 0;
 
-const el = (id) => document.getElementById(id);
+const $ = (id) => document.getElementById(id);
 
-function saveState() {
-  localStorage.setItem(STORAGE_KEYS.MENU, JSON.stringify(menu));
-  localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(orders));
+function syncStorage() {
+  localStorage.setItem(DB_KEYS.CATALOG, JSON.stringify(catalog));
+  localStorage.setItem(DB_KEYS.ORDERS, JSON.stringify(orders));
 }
 
-function showToast(msg) {
-  const toast = el("toast");
-  toast.textContent = msg;
-  toast.classList.remove("hidden");
-  setTimeout(() => toast.classList.add("hidden"), 2400);
+function notify(msg) {
+  const t = $("toast");
+  t.textContent = msg;
+  t.classList.remove("hidden");
+  setTimeout(() => t.classList.add("hidden"), 2500);
 }
 
-function getSmartRecommendation() {
-  const hour = new Date().getHours();
-  const counts = {};
+// NAVIGATION ROUTER
+document.querySelectorAll(".nav-item").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".nav-item").forEach(b => b.classList.remove("active"));
+    document.querySelectorAll(".view-section").forEach(sec => sec.classList.add("hidden"));
 
-  orders.forEach(order => {
-    order.items.forEach(item => {
-      counts[item.name] = (counts[item.name] || 0) + item.qty;
-    });
+    btn.classList.add("active");
+    const target = btn.dataset.view;
+    $(target).classList.remove("hidden");
+
+    const titles = {
+      posView: ["Digital Ordering Terminal", "Table service, smart upselling, and automated KDS routing"],
+      kdsView: ["Kitchen Display System (KDS)", "Live preparation queue and order fulfillment tracking"],
+      analyticsView: ["Manager & AI Analytics", "Revenue metrics, margin performance, and AI operations copilot"],
+      inventoryView: ["Menu & Inventory Control", "Manage dish catalog, unit costs, margins, and portion stock"]
+    };
+    $("pageTitle").textContent = titles[target][0];
+    $("pageSubtitle").textContent = titles[target][1];
+
+    if (target === "kdsView") renderKDS();
+    if (target === "analyticsView") renderAnalytics();
+    if (target === "inventoryView") renderInventory();
   });
+});
 
-  const sortedByPopularity = Object.entries(counts).sort((a, b) => b[1] - a[1]);
-  if (sortedByPopularity.length > 0) {
-    return `Assistant Pick: "${sortedByPopularity[0][0]}" is our most ordered item today (${sortedByPopularity[0][1]} served).`;
-  }
-
-  if (hour >= 12 && hour <= 16) {
-    return "Lunch Hour Suggestion: Pair Paradise Smash Burger with Mint Margarita for a quick combo.";
-  }
-  return "Chef's Evening Highlight: Alfredo Penne Pasta & Loaded Masala Fries are trending tonight.";
-}
-
-function getCartPairingSuggestion() {
-  if (cart.length === 0) return null;
-
-  const hasMainOrBurger = cart.some(c => c.category === "Burgers" || c.category === "Main Course");
-  const hasDrink = cart.some(c => c.category === "Drinks");
-  const hasSide = cart.some(c => c.category === "Sides");
-
-  if (hasMainOrBurger && !hasDrink) {
-    return menu.find(m => m.category === "Drinks" && m.available) || null;
-  }
-  if (hasMainOrBurger && !hasSide) {
-    return menu.find(m => m.category === "Sides" && m.available) || null;
-  }
-  return null;
-}
-
-// Customer AI Natural-Language Assistant
-function generateCustomerAiReply(query) {
-  const q = query.toLowerCase();
-  const availableItems = menu.filter(m => m.available);
-
-  const budgetMatch = q.match(/(\d{2,5})/);
-  if (budgetMatch) {
-    const maxPrice = Number(budgetMatch[1]);
-    const matches = availableItems.filter(m => m.price <= maxPrice);
-    if (matches.length === 0) {
-      return `No dishes are currently under PKR ${maxPrice}. Our lowest priced item is ${availableItems.sort((a,b)=>a.price-b.price)[0]?.name} (PKR ${availableItems[0]?.price}).`;
-    }
-    return `Under PKR ${maxPrice}, I recommend: ${matches.slice(0, 3).map(m => `${m.name} (PKR ${m.price})`).join(", ")}.`;
-  }
-
-  if (q.includes("spicy") || q.includes("hot") || q.includes("peri") || q.includes("masala") || q.includes("zinger")) {
-    const spicy = availableItems.filter(m =>
-      /spicy|peri|masala|zinger|jalapeno/i.test(m.name + " " + m.desc)
-    );
-    return spicy.length
-      ? `For spicy flavors, try: ${spicy.map(m => `${m.name} (PKR ${m.price})`).join(", ")}.`
-      : "You can add an 'extra spicy' kitchen note to any burger or main course!";
-  }
-
-  if (q.includes("combo") || q.includes("meal") || q.includes("suggest") || q.includes("recommend")) {
-    const main = availableItems.find(m => m.category === "Burgers" || m.category === "Main Course");
-    const drink = availableItems.find(m => m.category === "Drinks");
-    if (main && drink) {
-      return `Recommended Combo: ${main.name} + ${drink.name} for PKR ${main.price + drink.price}.`;
-    }
-  }
-
-  if (q.includes("drink") || q.includes("cold") || q.includes("thirsty")) {
-    const drinks = availableItems.filter(m => m.category === "Drinks");
-    return drinks.length
-      ? `Available Drinks: ${drinks.map(d => `${d.name} (PKR ${d.price})`).join(", ")}.`
-      : "All drinks are currently out of stock.";
-  }
-
-  if (q.includes("cheap") || q.includes("low") || q.includes("budget")) {
-    const sorted = [...availableItems].sort((a, b) => a.price - b.price).slice(0, 2);
-    return `Most budget-friendly picks: ${sorted.map(m => `${m.name} (PKR ${m.price})`).join(" and ")}.`;
-  }
-
-  const keywordMatches = availableItems.filter(m =>
-    q.split(" ").some(word => word.length > 2 && (m.name.toLowerCase().includes(word) || m.desc.toLowerCase().includes(word)))
+// LIVE TABLE OCCUPANCY BAR
+function renderTableStatus() {
+  const tables = ["T-01", "T-02", "T-03", "T-04", "T-05"];
+  const busyTables = new Set(
+    orders.filter(o => o.status !== "Completed").map(o => o.table)
   );
-  if (keywordMatches.length > 0) {
-    return `Found matching items: ${keywordMatches.map(m => `${m.name} (PKR ${m.price})`).join(", ")}.`;
-  }
+  $("tableStatusBar").innerHTML = tables.map(t => `
+    <span class="table-chip ${busyTables.has(t) ? "occupied" : ""}">
+      ${t}: ${busyTables.has(t) ? "Active" : "Free"}
+    </span>
+  `).join("");
 
-  return "Try asking for a budget (e.g. 'under 600'), 'spicy food', 'drinks', or 'suggest a combo'.";
+  const activeKdsCount = orders.filter(o => o.status !== "Completed").length;
+  $("navKdsBadge").textContent = activeKdsCount;
 }
 
-// Manager AI Operations Copilot
-function generateManagerAiReply(query) {
-  const q = query.toLowerCase();
-  const revenue = orders.reduce((s, o) => s + o.total, 0);
-  const pending = orders.filter(o => o.status === "Pending");
-  const preparing = orders.filter(o => o.status === "Preparing");
-  const outOfStock = menu.filter(m => !m.available);
-
-  if (q.includes("revenue") || q.includes("sales") || q.includes("earn") || q.includes("total")) {
-    return `Total revenue across ${orders.length} order(s) is PKR ${revenue.toLocaleString()}, with an average order value of PKR ${orders.length ? Math.round(revenue / orders.length) : 0}.`;
-  }
-
-  if (q.includes("pending") || q.includes("queue") || q.includes("active") || q.includes("kitchen")) {
-    return `Kitchen Status: ${pending.length} Pending order(s) and ${preparing.length} currently Preparing.`;
-  }
-
-  if (q.includes("top") || q.includes("best") || q.includes("popular") || q.includes("demand")) {
-    const tally = {};
-    orders.forEach(o => o.items.forEach(i => tally[i.name] = (tally[i.name] || 0) + i.qty));
-    const sorted = Object.entries(tally).sort((a, b) => b[1] - a[1]);
-    return sorted.length
-      ? `Top selling item is "${sorted[0][0]}" with ${sorted[0][1]} unit(s) ordered.`
-      : "No orders recorded yet to determine top-selling items.";
-  }
-
-  if (q.includes("stock") || q.includes("out") || q.includes("available")) {
-    return outOfStock.length
-      ? `Out of stock items (${outOfStock.length}): ${outOfStock.map(m => m.name).join(", ")}.`
-      : `All ${menu.length} menu items are currently in stock.`;
-  }
-
-  return `Summary: ${orders.length} total orders, PKR ${revenue.toLocaleString()} revenue, ${pending.length + preparing.length} active kitchen tickets, and ${outOfStock.length} out-of-stock item(s).`;
+// CATEGORY TABS & MENU GRID
+function renderCategories() {
+  const cats = ["All", ...new Set(catalog.map(i => i.category))];
+  $("categoryTabs").innerHTML = cats.map(c => `
+    <button class="cat-tab ${c === activeCategory ? "active" : ""}" data-cat="${c}">${c}</button>
+  `).join("");
 }
 
-function appendChatMessage(containerId, text, sender) {
-  const box = el(containerId);
-  const div = document.createElement("div");
-  div.className = `ai-msg ${sender}`;
-  div.textContent = text;
-  box.appendChild(div);
-  box.scrollTop = box.scrollHeight;
+$("categoryTabs").addEventListener("click", (e) => {
+  if (!e.target.classList.contains("cat-tab")) return;
+  activeCategory = e.target.dataset.cat;
+  renderCategories();
+  renderMenuGrid();
+});
+
+$("menuSearch").addEventListener("input", renderMenuGrid);
+
+function getTopRecommendationBanner() {
+  const tally = {};
+  orders.forEach(o => o.items.forEach(i => tally[i.name] = (tally[i.name] || 0) + i.qty));
+  const best = Object.entries(tally).sort((a, b) => b[1] - a[1])[0];
+  if (best) {
+    return `Trending Today: "${best[0]}" (${best[1]} orders placed)`;
+  }
+  const hr = new Date().getHours();
+  return hr < 17
+    ? "Lunch Smart Pick: Paradise Double Smash + Mint Margarita"
+    : "Dinner Smart Pick: Truffle Alfredo Fettuccine + Garlic Bread";
 }
 
-function renderMenu() {
-  const query = el("searchInput").value.trim().toLowerCase();
-  el("aiSmartBanner").textContent = getSmartRecommendation();
+function renderMenuGrid() {
+  $("dynamicRecoText").textContent = getTopRecommendationBanner();
+  const q = $("menuSearch").value.trim().toLowerCase();
 
-  const filtered = menu.filter(item => {
-    const matchesCat = selectedCategory === "All" || item.category === selectedCategory;
-    const matchesQuery = item.name.toLowerCase().includes(query) || item.desc.toLowerCase().includes(query);
-    return matchesCat && matchesQuery;
+  const filtered = catalog.filter(item => {
+    const catOk = activeCategory === "All" || item.category === activeCategory;
+    const textOk = item.name.toLowerCase().includes(q) || item.desc.toLowerCase().includes(q);
+    return catOk && textOk;
   });
 
-  el("menuGrid").innerHTML = filtered.map(item => `
-    <article class="dish-card ${item.available ? "" : "sold-out"}">
+  $("dishGrid").innerHTML = filtered.map(item => `
+    <article class="dish-card ${item.stock <= 0 ? "out" : ""}">
       <div>
-        <span class="dish-tag">${item.category}</span>
-        <h3>${item.name}</h3>
+        <div class="dish-meta">
+          <span>${item.category}</span>
+          <span>~${item.prepMins} min • ${item.stock} left</span>
+        </div>
+        <h4>${item.name}</h4>
         <p>${item.desc}</p>
       </div>
-      <div class="dish-bottom">
-        <span class="price">PKR ${item.price}</span>
-        <button class="add-btn" ${item.available ? "" : "disabled"} onclick="addToCart(${item.id})">
-          ${item.available ? "+ Add" : "Sold Out"}
+      <div class="dish-footer">
+        <span class="dish-price">PKR ${item.price}</span>
+        <button class="btn-add" ${item.stock <= 0 ? "disabled" : ""} onclick="addItemToCart(${item.id})">
+          ${item.stock > 0 ? "+ Add" : "Sold Out"}
         </button>
       </div>
     </article>
   `).join("");
 }
 
-function addToCart(itemId) {
-  const item = menu.find(m => m.id === itemId);
-  if (!item || !item.available) return;
+// CART & BILLING ENGINE
+function addItemToCart(id) {
+  const dish = catalog.find(d => d.id === id);
+  if (!dish || dish.stock <= 0) return;
 
-  const existing = cart.find(c => c.id === itemId);
+  const existing = cart.find(c => c.id === id);
   if (existing) {
+    if (existing.qty >= dish.stock) {
+      notify(`Only ${dish.stock} portions available in stock.`);
+      return;
+    }
     existing.qty += 1;
   } else {
-    cart.push({ ...item, qty: 1 });
+    cart.push({ id: dish.id, name: dish.name, category: dish.category, price: dish.price, cost: dish.cost, qty: 1 });
   }
   renderCart();
 }
 
-function updateQty(itemId, delta) {
-  const idx = cart.findIndex(c => c.id === itemId);
+function changeCartQty(id, delta) {
+  const idx = cart.findIndex(c => c.id === id);
   if (idx === -1) return;
+  const dish = catalog.find(d => d.id === id);
 
-  cart[idx].qty += delta;
-  if (cart[idx].qty <= 0) {
+  const nextQty = cart[idx].qty + delta;
+  if (nextQty <= 0) {
     cart.splice(idx, 1);
+  } else if (dish && nextQty <= dish.stock) {
+    cart[idx].qty = nextQty;
   }
   renderCart();
+}
+
+function getCrossSellItem() {
+  if (cart.length === 0) return null;
+  const hasEntree = cart.some(c => c.category === "Burgers" || c.category === "Main Course");
+  const hasDrink = cart.some(c => c.category === "Drinks");
+  const hasSide = cart.some(c => c.category === "Sides");
+
+  if (hasEntree && !hasDrink) return catalog.find(d => d.category === "Drinks" && d.stock > 0);
+  if (hasEntree && !hasSide) return catalog.find(d => d.category === "Sides" && d.stock > 0);
+  return null;
 }
 
 function renderCart() {
-  const list = el("cartItems");
-  const pairingBox = el("pairingBox");
-  const placeBtn = el("placeOrderBtn");
+  const box = $("cartContainer");
+  const upsell = $("smartUpsellCard");
 
   if (cart.length === 0) {
-    list.innerHTML = `<p class="empty-msg">No items added yet.</p>`;
-    pairingBox.classList.add("hidden");
-    el("cartTotal").textContent = "PKR 0";
-    placeBtn.disabled = true;
+    box.innerHTML = `<p style="color:#64748b;font-size:0.84rem;">Select dishes from the menu to build an order.</p>`;
+    upsell.classList.add("hidden");
+    $("subTotalVal").textContent = "PKR 0";
+    $("taxVal").textContent = "PKR 0";
+    $("grandTotalVal").textContent = "PKR 0";
+    $("submitOrderBtn").disabled = true;
     return;
   }
 
-  let total = 0;
-  list.innerHTML = cart.map(item => {
-    total += item.price * item.qty;
-    return `
-      <div class="cart-row">
-        <div>
-          <strong>${item.name}</strong><br />
-          <small>PKR ${item.price} x ${item.qty}</small>
-        </div>
-        <div class="qty-controls">
-          <button onclick="updateQty(${item.id}, -1)">-</button>
-          <span>${item.qty}</span>
-          <button onclick="updateQty(${item.id}, 1)">+</button>
-        </div>
+  box.innerHTML = cart.map(item => `
+    <div class="cart-line">
+      <div>
+        <strong>${item.name}</strong><br/>
+        <small style="color:#64748b;">PKR ${item.price} x ${item.qty}</small>
       </div>
-    `;
-  }).join("");
+      <div class="qty-box">
+        <button onclick="changeCartQty(${item.id}, -1)">-</button>
+        <span>${item.qty}</span>
+        <button onclick="changeCartQty(${item.id}, 1)">+</button>
+      </div>
+    </div>
+  `).join("");
 
-  const suggestion = getCartPairingSuggestion();
-  if (suggestion) {
-    pairingBox.classList.remove("hidden");
-    pairingBox.innerHTML = `
-      <span>Add <strong>${suggestion.name}</strong> (PKR ${suggestion.price})?</span>
-      <button onclick="addToCart(${suggestion.id})">+ Add</button>
+  const pairing = getCrossSellItem();
+  if (pairing) {
+    upsell.classList.remove("hidden");
+    upsell.innerHTML = `
+      <span>AI Pairing: Add <strong>${pairing.name}</strong> (PKR ${pairing.price})?</span>
+      <button onclick="addItemToCart(${pairing.id})">+ Add</button>
     `;
   } else {
-    pairingBox.classList.add("hidden");
+    upsell.classList.add("hidden");
   }
 
-  el("cartTotal").textContent = `PKR ${total}`;
-  placeBtn.disabled = false;
+  const subtotal = cart.reduce((s, i) => s + i.price * i.qty, 0);
+  const discount = Math.round(subtotal * discountRate);
+  const taxable = subtotal - discount;
+  const tax = Math.round(taxable * 0.08);
+  const grandTotal = taxable + tax;
+
+  $("subTotalVal").textContent = `PKR ${subtotal}`;
+  $("taxVal").textContent = `PKR ${tax}`;
+  if (discount > 0) {
+    $("discountLine").classList.remove("hidden");
+    $("discountVal").textContent = `-PKR ${discount}`;
+  } else {
+    $("discountLine").classList.add("hidden");
+  }
+  $("grandTotalVal").textContent = `PKR ${grandTotal}`;
+  $("submitOrderBtn").disabled = false;
 }
 
-function placeOrder() {
+$("tableSelector").addEventListener("change", (e) => {
+  $("ticketTableBadge").textContent = e.target.value;
+});
+
+$("clearCartBtn").addEventListener("click", () => {
+  cart = [];
+  discountRate = 0;
+  $("promoInput").value = "";
+  renderCart();
+});
+
+$("applyPromoBtn").addEventListener("click", () => {
+  const code = $("promoInput").value.trim().toUpperCase();
+  if (code === "PADUA10" || code === "POP10") {
+    discountRate = 0.10;
+    notify("10% Promo Discount Applied!");
+  } else {
+    discountRate = 0;
+    notify("Invalid promo code. Try PADUA10.");
+  }
+  renderCart();
+});
+
+$("submitOrderBtn").addEventListener("click", () => {
   if (cart.length === 0) return;
 
-  const total = cart.reduce((sum, item) => sum + item.price * item.qty, 0);
-  const newOrder = {
-    id: "ORD-" + String(Date.now()).slice(-4),
-    table: el("tableSelect").value,
-    items: cart.map(({ id, name, price, qty }) => ({ id, name, price, qty })),
-    note: el("orderNote").value.trim(),
-    total,
+  const subtotal = cart.reduce((s, i) => s + i.price * i.qty, 0);
+  const totalCost = cart.reduce((s, i) => s + i.cost * i.qty, 0);
+  const discount = Math.round(subtotal * discountRate);
+  const tax = Math.round((subtotal - discount) * 0.08);
+  const grandTotal = subtotal - discount + tax;
+  const payMethod = document.querySelector("input[name='payMethod']:checked").value;
+
+  // Deduct stock portions
+  cart.forEach(c => {
+    const dish = catalog.find(d => d.id === c.id);
+    if (dish) dish.stock = Math.max(0, dish.stock - c.qty);
+  });
+
+  const orderObj = {
+    id: "PP-" + Math.floor(1000 + Math.random() * 9000),
+    table: $("tableSelector").value,
+    customer: $("customerNameInput").value.trim() || "Walk-In Guest",
+    note: $("kitchenNotesInput").value.trim(),
+    items: JSON.parse(JSON.stringify(cart)),
+    subtotal,
+    discount,
+    tax,
+    total: grandTotal,
+    cost: totalCost,
+    payMethod,
     status: "Pending",
-    time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+    createdAt: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
   };
 
-  orders.unshift(newOrder);
-  saveState();
+  orders.unshift(orderObj);
+  syncStorage();
 
+  showReceipt(orderObj);
   cart = [];
-  el("orderNote").value = "";
+  discountRate = 0;
+  $("customerNameInput").value = "";
+  $("kitchenNotesInput").value = "";
+  $("promoInput").value = "";
+
   renderCart();
-  renderMenu();
-  showToast(`Order ${newOrder.id} sent to kitchen!`);
+  renderMenuGrid();
+  renderTableStatus();
+});
+
+function showReceipt(order) {
+  $("receiptContent").innerHTML = `
+    <div class="receipt-paper">
+      <h3 style="text-align:center;">POP PARADISE</h3>
+      <p style="text-align:center;font-size:0.75rem;">Digital Tax Invoice • ${order.createdAt}</p>
+      <hr style="margin:8px 0;"/>
+      <p><strong>Ticket:</strong> ${order.id} (${order.table})</p>
+      <p><strong>Guest:</strong> ${order.customer}</p>
+      <p><strong>Payment:</strong> ${order.payMethod}</p>
+      <hr style="margin:8px 0;"/>
+      ${order.items.map(i => `<div style="display:flex;justify-content:space-between;"><span>${i.qty}x ${i.name}</span><span>${i.price * i.qty}</span></div>`).join("")}
+      <hr style="margin:8px 0;"/>
+      <div style="display:flex;justify-content:space-between;"><span>Subtotal</span><span>PKR ${order.subtotal}</span></div>
+      ${order.discount ? `<div style="display:flex;justify-content:space-between;"><span>Discount</span><span>-PKR ${order.discount}</span></div>` : ""}
+      <div style="display:flex;justify-content:space-between;"><span>GST (8%)</span><span>PKR ${order.tax}</span></div>
+      <div style="display:flex;justify-content:space-between;font-weight:bold;margin-top:4px;"><span>TOTAL</span><span>PKR ${order.total}</span></div>
+    </div>
+  `;
+  $("receiptModal").classList.remove("hidden");
 }
 
-function cycleOrderStatus(orderId) {
+$("closeReceiptBtn").addEventListener("click", () => {
+  $("receiptModal").classList.add("hidden");
+});
+
+// KITCHEN DISPLAY SYSTEM (KDS)
+document.querySelectorAll(".filter-pill").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".filter-pill").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    activeKdsFilter = btn.dataset.kds;
+    renderKDS();
+  });
+});
+
+function advanceKdsStatus(orderId) {
+  const flow = ["Pending", "Preparing", "Ready", "Completed"];
   const order = orders.find(o => o.id === orderId);
   if (!order) return;
-
-  if (order.status === "Pending") order.status = "Preparing";
-  else if (order.status === "Preparing") order.status = "Served";
-
-  saveState();
-  renderManagerDashboard();
+  const nextIdx = flow.indexOf(order.status) + 1;
+  if (nextIdx < flow.length) {
+    order.status = flow[nextIdx];
+    syncStorage();
+    renderKDS();
+    renderTableStatus();
+  }
 }
 
-function toggleStock(itemId) {
-  const item = menu.find(m => m.id === itemId);
-  if (!item) return;
-  item.available = !item.available;
-  saveState();
-  renderManagerDashboard();
-  renderMenu();
-}
+function renderKDS() {
+  const list = activeKdsFilter === "ALL"
+    ? orders
+    : orders.filter(o => o.status === activeKdsFilter);
 
-function renderManagerDashboard() {
-  const revenue = orders.reduce((sum, o) => sum + o.total, 0);
-  const activeCount = orders.filter(o => o.status !== "Served").length;
-
-  const itemTally = {};
-  orders.forEach(o => o.items.forEach(i => {
-    itemTally[i.name] = (itemTally[i.name] || 0) + i.qty;
-  }));
-  const topEntry = Object.entries(itemTally).sort((a, b) => b[1] - a[1])[0];
-
-  el("statOrders").textContent = orders.length;
-  el("statActive").textContent = activeCount;
-  el("statRevenue").textContent = `PKR ${revenue.toLocaleString()}`;
-  el("statTopItem").textContent = topEntry ? `${topEntry[0]} (${topEntry[1]})` : "—";
-
-  const avgOrder = orders.length ? Math.round(revenue / orders.length) : 0;
-  el("managerInsightStrip").textContent = orders.length
-    ? `Operational Insight: Average ticket size is PKR ${avgOrder}. ${activeCount} order(s) currently need kitchen attention.`
-    : "Operational Insight: Waiting for incoming table orders to generate live demand metrics.";
-
-  const queueEl = el("orderQueue");
-  if (orders.length === 0) {
-    queueEl.innerHTML = `<p class="empty-msg">No orders placed yet.</p>`;
-  } else {
-    queueEl.innerHTML = orders.map(order => `
-      <div class="order-ticket">
-        <div class="ticket-top">
-          <span>${order.id} • ${order.table} (${order.time})</span>
-          <span class="badge ${order.status}">${order.status}</span>
-        </div>
-        <div class="ticket-items">
-          ${order.items.map(i => `${i.qty}x ${i.name}`).join(", ")}
-          ${order.note ? `<br/><em>Note: ${order.note}</em>` : ""}
-        </div>
-        <div class="ticket-actions">
-          <strong>PKR ${order.total}</strong>
-          ${order.status !== "Served"
-            ? `<button onclick="cycleOrderStatus('${order.id}')">Mark as ${order.status === "Pending" ? "Preparing" : "Served"}</button>`
-            : `<span>Completed</span>`}
-        </div>
-      </div>
-    `).join("");
+  if (list.length === 0) {
+    $("kdsBoard").innerHTML = `<p style="color:#64748b;">No kitchen tickets under "${activeKdsFilter}".</p>`;
+    return;
   }
 
-  el("stockList").innerHTML = menu.map(item => `
-    <div class="stock-row">
-      <span>${item.name} (PKR ${item.price})</span>
-      <button class="ghost-btn" onclick="toggleStock(${item.id})">
-        ${item.available ? "In Stock" : "Out of Stock"}
-      </button>
+  $("kdsBoard").innerHTML = list.map(o => `
+    <div class="kds-card ${o.status}">
+      <div>
+        <div class="kds-head">
+          <strong>${o.id} • ${o.table}</strong>
+          <span class="status-tag ${o.status}">${o.status}</span>
+        </div>
+        <small style="color:#64748b;">${o.customer} • ${o.createdAt} • ${o.payMethod}</small>
+        <ul class="kds-items">
+          ${o.items.map(i => `<li><strong>${i.qty}x</strong> ${i.name}</li>`).join("")}
+        </ul>
+        ${o.note ? `<div class="kds-note">Note: ${o.note}</div>` : ""}
+      </div>
+      <div class="kds-actions">
+        ${o.status !== "Completed"
+          ? `<button onclick="advanceKdsStatus('${o.id}')">Advance Stage &rarr;</button>`
+          : `<button disabled>Archived</button>`}
+      </div>
     </div>
   `).join("");
 }
 
-el("btnCustomerView").addEventListener("click", () => {
-  el("btnCustomerView").classList.add("active");
-  el("btnManagerView").classList.remove("active");
-  el("customerSection").classList.remove("hidden");
-  el("managerSection").classList.add("hidden");
+$("simulateRushBtn").addEventListener("click", () => {
+  const available = catalog.filter(d => d.stock > 1);
+  if (available.length < 2) return notify("Restock items first.");
+  const pick1 = available[Math.floor(Math.random() * available.length)];
+  const pick2 = available[Math.floor(Math.random() * available.length)];
+  const tables = ["T-01", "T-02", "T-03", "T-04", "T-05"];
+  const items = [{ id: pick1.id, name: pick1.name, category: pick1.category, price: pick1.price, cost: pick1.cost, qty: 1 }];
+  if (pick2.id !== pick1.id) {
+    items.push({ id: pick2.id, name: pick2.name, category: pick2.category, price: pick2.price, cost: pick2.cost, qty: 1 });
+  }
+  const subtotal = items.reduce((s, i) => s + i.price, 0);
+  const cost = items.reduce((s, i) => s + i.cost, 0);
+  const tax = Math.round(subtotal * 0.08);
+  orders.unshift({
+    id: "PP-" + Math.floor(1000 + Math.random() * 9000),
+    table: tables[Math.floor(Math.random() * tables.length)],
+    customer: "Demo Diner",
+    note: "",
+    items,
+    subtotal,
+    discount: 0,
+    tax,
+    total: subtotal + tax,
+    cost,
+    payMethod: "Card / QR",
+    status: "Pending",
+    createdAt: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+  });
+  syncStorage();
+  renderKDS();
+  renderTableStatus();
+  notify("Simulated incoming table order!");
 });
 
-el("btnManagerView").addEventListener("click", () => {
-  el("btnManagerView").classList.add("active");
-  el("btnCustomerView").classList.remove("active");
-  el("managerSection").classList.remove("hidden");
-  el("customerSection").classList.add("hidden");
-  renderManagerDashboard();
-});
+// ANALYTICS & BI DASHBOARD
+function renderAnalytics() {
+  const revenue = orders.reduce((s, o) => s + o.total, 0);
+  const totalCost = orders.reduce((s, o) => s + (o.cost || 0), 0);
+  const netProfit = Math.max(0, revenue - totalCost);
+  const marginPct = revenue ? ((netProfit / revenue) * 100).toFixed(1) : 0;
+  const aov = orders.length ? Math.round(revenue / orders.length) : 0;
 
-el("tableSelect").addEventListener("change", (e) => {
-  el("activeTableLabel").textContent = e.target.value;
-});
+  const dishSales = {};
+  const catRevenue = {};
+  orders.forEach(o => {
+    o.items.forEach(i => {
+      dishSales[i.name] = (dishSales[i.name] || 0) + i.qty;
+      catRevenue[i.category] = (catRevenue[i.category] || 0) + (i.price * i.qty);
+    });
+  });
 
-el("searchInput").addEventListener("input", renderMenu);
+  const topDish = Object.entries(dishSales).sort((a, b) => b[1] - a[1])[0];
 
-el("categoryBar").addEventListener("click", (e) => {
-  if (!e.target.classList.contains("cat-chip")) return;
-  document.querySelectorAll(".cat-chip").forEach(btn => btn.classList.remove("active"));
-  e.target.classList.add("active");
-  selectedCategory = e.target.dataset.cat;
-  renderMenu();
-});
+  $("kpiRevenue").textContent = `PKR ${revenue.toLocaleString()}`;
+  $("kpiOrdersCount").textContent = `${orders.length} order(s) processed`;
+  $("kpiAov").textContent = `PKR ${aov.toLocaleString()}`;
+  $("kpiMargin").textContent = `${marginPct}%`;
+  $("kpiProfitVal").textContent = `Est. net PKR ${netProfit.toLocaleString()}`;
+  $("kpiTopDish").textContent = topDish ? topDish[0] : "—";
+  $("kpiTopQty").textContent = topDish ? `${topDish[1]} units sold` : "0 units sold";
 
-el("customerAiForm").addEventListener("submit", (e) => {
+  const maxCatVal = Math.max(...Object.values(catRevenue), 1);
+  const allCats = ["Burgers", "Main Course", "Sides", "Drinks"];
+  $("categoryChart").innerHTML = allCats.map(cat => {
+    const val = catRevenue[cat] || 0;
+    const pct = Math.round((val / maxCatVal) * 100);
+    return `
+      <div class="bar-row">
+        <div class="bar-label"><span>${cat}</span><strong>PKR ${val.toLocaleString()}</strong></div>
+        <div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div>
+      </div>
+    `;
+  }).join("");
+}
+
+// INVENTORY & MARGIN LEDGER
+function restockItem(id, amount) {
+  const dish = catalog.find(d => d.id === id);
+  if (!dish) return;
+  dish.stock += amount;
+  syncStorage();
+  renderInventory();
+  renderMenuGrid();
+}
+
+function renderInventory() {
+  $("inventoryTableBody").innerHTML = catalog.map(d => {
+    const margin = Math.round(((d.price - d.cost) / d.price) * 100);
+    return `
+      <tr>
+        <td><strong>${d.name}</strong></td>
+        <td>${d.category}</td>
+        <td>PKR ${d.price} / <span style="color:#64748b;">${d.cost}</span></td>
+        <td>${margin}%</td>
+        <td class="${d.stock <= 5 ? "stock-low" : ""}">${d.stock}</td>
+        <td><button class="outline-btn" onclick="restockItem(${d.id}, 10)">+10 Stock</button></td>
+      </tr>
+    `;
+  }).join("");
+}
+
+$("newDishForm").addEventListener("submit", (e) => {
   e.preventDefault();
-  const input = el("customerAiInput");
-  const q = input.value.trim();
-  if (!q) return;
-  appendChatMessage("customerAiChat", q, "user");
-  appendChatMessage("customerAiChat", generateCustomerAiReply(q), "bot");
-  input.value = "";
-});
-
-el("managerAiForm").addEventListener("submit", (e) => {
-  e.preventDefault();
-  const input = el("managerAiInput");
-  const q = input.value.trim();
-  if (!q) return;
-  appendChatMessage("managerAiChat", q, "user");
-  appendChatMessage("managerAiChat", generateManagerAiReply(q), "bot");
-  input.value = "";
-});
-
-el("placeOrderBtn").addEventListener("click", placeOrder);
-
-el("clearCompletedBtn").addEventListener("click", () => {
-  orders = orders.filter(o => o.status !== "Served");
-  saveState();
-  renderManagerDashboard();
-});
-
-el("addMenuForm").addEventListener("submit", (e) => {
-  e.preventDefault();
-  const newItem = {
+  catalog.push({
     id: Date.now(),
-    name: el("itemName").value.trim(),
-    category: el("itemCat").value,
-    price: Number(el("itemPrice").value),
-    desc: el("itemDesc").value.trim(),
-    available: true
-  };
-  menu.push(newItem);
-  saveState();
+    name: $("fName").value.trim(),
+    category: $("fCategory").value,
+    prepMins: Number($("fPrep").value),
+    cost: Number($("fCost").value),
+    price: Number($("fPrice").value),
+    stock: Number($("fStock").value),
+    desc: $("fDesc").value.trim()
+  });
+  syncStorage();
   e.target.reset();
-  renderManagerDashboard();
-  renderMenu();
-  showToast("New dish added to menu.");
+  renderCategories();
+  renderMenuGrid();
+  renderInventory();
+  notify("New dish published to catalog.");
 });
 
-renderMenu();
+// NATURAL LANGUAGE AI ASSISTANTS
+function pushChat(boxId, text, role) {
+  const box = $(boxId);
+  const el = document.createElement("div");
+  el.className = `msg ${role}`;
+  el.textContent = text;
+  box.appendChild(el);
+  box.scrollTop = box.scrollHeight;
+}
+
+$("customerChatForm").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const q = $("customerChatInput").value.trim();
+  if (!q) return;
+  pushChat("customerChatLog", q, "user");
+  $("customerChatInput").value = "";
+
+  const lower = q.toLowerCase();
+  const inStock = catalog.filter(d => d.stock > 0);
+  const numMatch = lower.match(/(\d{2,5})/);
+
+  let reply = "";
+  if (numMatch) {
+    const cap = Number(numMatch[1]);
+    const hits = inStock.filter(d => d.price <= cap);
+    reply = hits.length
+      ? `Items within PKR ${cap}: ${hits.slice(0, 3).map(h => `${h.name} (PKR ${h.price})`).join(", ")}.`
+      : `No single dish is under PKR ${cap}. Lowest item is ${[...inStock].sort((a,b)=>a.price-b.price)[0]?.name}.`;
+  } else if (lower.includes("spicy") || lower.includes("peri") || lower.includes("zinger")) {
+    const spicy = inStock.filter(d => /spicy|peri|zinger|jalapeno|masala/i.test(d.name + d.desc));
+    reply = `Top spicy picks: ${spicy.map(s => `${s.name} (PKR ${s.price})`).join(", ")}.`;
+  } else if (lower.includes("combo") || lower.includes("dinner") || lower.includes("lunch")) {
+    const main = inStock.find(d => d.category === "Main Course" || d.category === "Burgers");
+    const side = inStock.find(d => d.category === "Sides");
+    const drink = inStock.find(d => d.category === "Drinks");
+    reply = main && drink
+      ? `Chef's Combo: ${main.name} + ${side ? side.name + " + " : ""}${drink.name} (Total: PKR ${main.price + (side?.price || 0) + drink.price}).`
+      : "Try pairing any burger with Mint Margarita!";
+  } else {
+    reply = "Ask me with a budget (e.g. 'under 900'), 'spicy dishes', or 'suggest a dinner combo'.";
+  }
+  pushChat("customerChatLog", reply, "bot");
+});
+
+$("managerChatForm").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const q = $("managerChatInput").value.trim();
+  if (!q) return;
+  pushChat("managerChatLog", q, "user");
+  $("managerChatInput").value = "";
+
+  const lower = q.toLowerCase();
+  const rev = orders.reduce((s, o) => s + o.total, 0);
+  const cost = orders.reduce((s, o) => s + (o.cost || 0), 0);
+  const active = orders.filter(o => o.status !== "Completed").length;
+  const lowStock = catalog.filter(d => d.stock <= 5);
+
+  let reply = "";
+  if (lower.includes("profit") || lower.includes("margin") || lower.includes("revenue")) {
+    const profit = Math.max(0, rev - cost);
+    const pct = rev ? ((profit / rev) * 100).toFixed(1) : 0;
+    reply = `Gross Revenue: PKR ${rev.toLocaleString()} | Est. Net Profit: PKR ${profit.toLocaleString()} (${pct}% margin).`;
+  } else if (lower.includes("bottleneck") || lower.includes("kitchen") || lower.includes("queue")) {
+    reply = `Kitchen Load: ${active} active ticket(s) in queue. Average prep SLA is 12 mins.`;
+  } else if (lower.includes("stock") || lower.includes("restock") || lower.includes("low")) {
+    reply = lowStock.length
+      ? `Low Stock Alert: ${lowStock.map(l => `${l.name} (${l.stock} left)`).join(", ")}.`
+      : "All menu items have healthy stock levels (>5 portions).";
+  } else {
+    reply = `Executive Pulse: ${orders.length} orders, PKR ${rev.toLocaleString()} revenue, ${active} active kitchen tickets, ${lowStock.length} low-stock alerts.`;
+  }
+  pushChat("managerChatLog", reply, "bot");
+});
+
+// CSV EXPORT
+$("exportReportBtn").addEventListener("click", () => {
+  const rows = [
+    ["Order_ID", "Table", "Customer", "Payment", "Status", "Subtotal", "Tax", "Total_PKR", "Time"],
+    ...orders.map(o => [o.id, o.table, o.customer, o.payMethod, o.status, o.subtotal, o.tax, o.total, o.createdAt])
+  ];
+  const csv = rows.map(r => r.join(",")).join("
+");
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+  a.download = "pop-paradise-sales-report.csv";
+  a.click();
+});
+
+// INIT
+renderCategories();
+renderMenuGrid();
 renderCart();
+renderTableStatus();
